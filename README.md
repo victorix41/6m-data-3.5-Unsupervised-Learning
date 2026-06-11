@@ -40,7 +40,7 @@
 
 | Phase | Time | Format |
 |---|---|---|
-| Concepts + coding walkthrough | ~90 min | Instructor walks through the [**interactive key-concepts page →**](https://flexfengfeng.github.io/dsai-m3-l05-learner/) (PCA · K-Means · Isolation Forest) |
+| Concepts + coding walkthrough | ~90 min | Instructor walks through the [**interactive key-concepts page →**](https://su-ntu-ctp.github.io/6m-data-3.5-Unsupervised-Learning/) (PCA · K-Means · Isolation Forest) |
 | Hands-on code-alongs | ~90 min | Three notebooks (~25–30 min each) — Core sections only |
 | (Self-study after class) | self-paced | Each notebook has a 🟡 Extension section + the assignment |
 
@@ -60,7 +60,7 @@
 
 ### Phase 2 — In class: hands-on (~3 hrs)
 
-**Interactive walkthrough →** [**Key concepts page**](https://flexfengfeng.github.io/dsai-m3-l05-learner/) — the same visualisations the instructor uses in class (PCA · K-Means · Isolation Forest).
+**Interactive walkthrough →** [**Key concepts page**](https://su-ntu-ctp.github.io/6m-data-3.5-Unsupervised-Learning/) — the same visualisations the instructor uses in class (PCA · K-Means · Isolation Forest).
 
 **Short reference & review →** [**lesson.md**](./lesson.md) (overview, key takeaways, technique-choice checklist, 9-question review, L06→L10 course map)
 
