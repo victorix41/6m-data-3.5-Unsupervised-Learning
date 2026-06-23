@@ -29,6 +29,91 @@ For four weeks Sarah has worked with a target column. This week there isn't one 
 
 ---
 
+## First, the intuition — what are these three things?
+
+> **New to unsupervised learning? Read this section before the notebooks.** It uses one running analogy so the three algorithms stop feeling like three unrelated black boxes.
+
+**The setup.** Imagine NorthStar's customers as people standing in a giant warehouse. Each customer's position is decided by 17 numbers — how long they've been a customer, how much they spend, how many tickets they file, and so on. People with similar habits end up standing near each other; people with unusual habits end up off on their own. We cannot literally see a 17-dimensional warehouse, and neither can Sarah — that is the core problem the three algorithms each attack from a different side.
+
+### PCA — "take the most informative photograph"
+
+You're standing in that 17-dimensional warehouse and you need to show Marcus a single picture on a slide. A photograph flattens a 3D room onto 2D paper — and a *good* photographer picks the angle that shows the most. Stand at the wrong angle and everyone overlaps into a blob; stand at the right angle and you can see who's grouped with whom.
+
+**PCA finds the best camera angles automatically.** It searches all 17 dimensions for the directions along which customers are most *spread out* (spread = variance = information), and lets you keep just the top two or three. "PC1" is the single most informative angle, "PC2" the next-best angle at right angles to it, and so on.
+
+- **What it gives you:** a small number of new axes (PC1, PC2, …) that each blend the original features.
+- **The honesty check:** `explained_variance_ratio_` tells you how much of the real spread your photo actually captured. If PC1+PC2 only explain 22%, your 2D photo is genuinely blurry — say so.
+- **The naming step is human:** PCA hands you coefficients (`components_`); *you* look at them and say "ah, PC1 is basically an engagement axis." The algorithm never names anything.
+
+> **Common confusion: `explained_variance_ratio_` is NOT the % of customers.** This trips up almost everyone, so read slowly.
+>
+> **It does not mean** "this component covers 22% of my customers." *Every* customer is plotted on *every* component — no customer is left out. The ratio is about how much *information* you keep, not how many *people* you keep.
+>
+> **What "spread" / "variance" actually means.** Variance just measures *how different customers are from each other* along a direction. Picture lining everyone up by a single number:
+> - Line them up by **`tenure_months`** and they're spread all over — newcomers at one end, 6-year veterans at the other. That's **high variance**: this number tells customers apart well.
+> - Now imagine a number that's *15 for almost everyone* (say, a near-constant field). Everyone bunches at the same spot. That's **low variance**: it barely distinguishes anyone, so it carries little information.
+>
+> Variance = spread = "how much this axis separates one customer from another." A direction with lots of spread is informative; a direction where everyone clumps together is not.
+>
+> **So `explained_variance_ratio_ = [0.13, 0.09, ...]` reads as:** "PC1 captures 13% of all the *spread/difference* between customers; PC2 captures another 9%." Add them: your 2D picture preserves **22% of how different customers really are from one another**, and flattens away the other 78%. That's why a low number means a blurry, overlapping plot — not that you dropped any customers.
+>
+> **One-line version:** the ratio answers *"how much of the customer-to-customer difference does this picture keep?"* — never *"how many customers does it keep?"* (the answer to that is always 100%).
+
+### K-Means — "draw K circles around the crowds"
+
+Now you want to label everyone as belonging to one of K groups. K-Means is the simplest possible rule: **pick K spots on the floor, send everyone to their nearest spot, then move each spot to the middle of the people who came to it — and repeat until nothing moves.** Those K final spots are the cluster centres; everyone near a centre is one segment.
+
+- **You must choose K.** The algorithm won't. The **elbow plot** (inertia vs K) and the **silhouette score** are two advisors that argue about the best K — and on real data they often disagree or shrug. Business need ("marketing can run 4 campaigns") breaks the tie.
+- **Its blind spot:** K-Means draws *round* groups of *similar size*. If the real crowds are stringy, or one is huge and one is tiny, it will force-fit them. A 12-person "cluster" next to three 2,500-person clusters isn't a segment — it's a pile of oddballs K-Means had nowhere else to put.
+- **The deliverable is names, not numbers.** `fit_predict` returns integers (0,1,2,3). You turn those into "Loyal Premium," "At-Risk Newcomer," etc. by profiling each group's averages.
+
+### Isolation Forest — "who is easiest to cut off from the crowd?"
+
+K-Means asks "which group is each person in?" Isolation Forest asks a different question entirely: **"who doesn't belong to any group?"** Its trick is beautifully simple. Repeatedly slice the warehouse with random straight cuts. A person packed in the middle of a dense crowd takes *many* cuts to isolate into their own empty section. A weird, off-on-their-own person gets isolated in just *one or two* cuts. **Easy to isolate = anomaly.**
+
+- **The score is continuous.** Every customer gets an "easy-to-isolate" score; the most isolated ~5% become the watch list.
+- **`contamination` is just a dial, not a model setting.** It only decides where to draw the cutoff line ("flag the top 5%" vs "top 2%"). You can move the line *after* training without re-running anything — the scores don't change.
+- **A flag is a question, not a verdict.** The model says "this combination of features is unusual"; a human reads the row and decides if it's fraud, a data glitch, or just an interesting customer worth a phone call.
+
+### Why all three, and how the steps connect
+
+These aren't three competing tools — they're three different jobs Marcus asked for in one brief, sharing one pipeline:
+
+```
+   Raw CSV (17 features, no label)
+            │
+   ┌────────▼───────────────────────┐
+   │  Same preprocessing as L03/L04  │   ← impute, scale, encode
+   │  (scale FIRST — all three are   │     (fit on train only!)
+   │   distance/variance sensitive)  │
+   └────────┬───────────────────────┘
+            │
+   ┌────────┼────────────────────────┐
+   │        │                        │
+   ▼        ▼                        ▼
+ PCA      K-MEANS                ISOLATION FOREST
+ "show    "find groups           "find the oddballs
+  me a     we can name"           to watch"
+  picture"
+   │        │                        │
+   │        ▼                        ▼
+   │   Named segments          Watch list
+   │   → Marketing             → Customer Success
+   │
+   └─► A 2D map used to *eyeball* and sanity-check
+       the K-Means clusters (Are they separated? Did
+       a tiny weird cluster show up?) — which is also
+       where the anomalies tend to sit on the edges.
+```
+
+Three connections worth holding onto:
+
+1. **Scaling comes before all of them, for the same reason.** PCA chases variance and K-Means chases distance — both are fooled by a feature measured in big numbers (pounds) drowning out one measured in small numbers (a 0–1 ratio). Standardise once, up front, and all three behave.
+2. **PCA is the shared lens.** It's a deliverable on its own (the slide), *and* the 2D map you plot K-Means clusters onto to see whether they actually separate, *and* the same intuition that lets you eyeball where anomalies fall. One technique, used three ways.
+3. **K-Means and Isolation Forest answer opposite halves of the same question.** Clustering describes the *dense middle* (where the crowds are); anomaly detection describes the *sparse edges* (who's alone). That's why anomalies show up scattered along the boundary of *every* cluster, not bunched in one — and why both lists go to different teams.
+
+---
+
 ## Key takeaways
 
 1. **Unsupervised learning is three jobs, not one.** Dimensionality reduction, clustering, and anomaly detection cover roughly 90% of real unsupervised work. Pick the job before you pick the algorithm.
